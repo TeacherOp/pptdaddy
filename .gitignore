@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+exports/
+assets/
+.claude/
+# Environment
+.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Generated slides
+slides/*.html
+!slides/.gitkeep
+
+# Assets
+assets/logos/*
+assets/images/*
+!assets/.gitkeep
+!assets/logos/.gitkeep
+!assets/images/.gitkeep
+
+# Flask
+instance/
+.webassets-cache
+
+# OS
+.DS_Store
+Thumbs.db
+
+
+ANTHROPIC_API_GUIDE.md
+PPT_GENERATOR_MVP_PLAN.md
