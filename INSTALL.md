@@ -37,7 +37,7 @@ cp .env.example .env
 Test that everything is installed correctly:
 
 ```bash
-python -c "import anthropic, playwright, pptx; print('✅ All packages installed successfully!')"
+python3 -c "import anthropic, playwright, pptx; print('✅ All packages installed successfully!')"
 ```
 
 ## Troubleshooting

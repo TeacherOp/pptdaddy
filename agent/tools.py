@@ -14,19 +14,18 @@ WEB_SEARCH_TOOL = {
 # Generate PPT - Custom client-side tool
 GENERATE_PPT_TOOL = {
     "name": "generate_ppt",
-    "description": """Generate a PowerPoint presentation based on the provided details.
-    This tool creates HTML-based slides that can be viewed in a browser.
-
+    "description": """
+    This tool calls an AI agent that will generate a complete presentation as a series of html slides and files.
     Use this tool ONLY when you have collected ALL required information from the user:
     - Topic of the presentation
     - Description and purpose
     - Detailed content outline or key points
-
-    Optional information (use if provided by user):
     - Brand colors
     - Logo details
     - Brand guidelines
     - Additional data or statistics
+
+    Please ensure that you are passing as much relevant and detailed information you can to the AI agent to create the best possible presentation.
     """,
     "input_schema": {
         "type": "object",
@@ -37,7 +36,7 @@ GENERATE_PPT_TOOL = {
             },
             "ppt_description": {
                 "type": "string",
-                "description": "A brief description of what the presentation is about and its purpose"
+                "description": "A detailed description of what the presentation is about and its purpose"
             },
             "ppt_details": {
                 "type": "string",
@@ -45,22 +44,22 @@ GENERATE_PPT_TOOL = {
             },
             "ppt_data": {
                 "type": "string",
-                "description": "Optional. Any specific data, statistics, or numbers to include. Any logo asset file links which can be passed to the ppt agent to use can also be passed here."
+                "description": "Any specific data, statistics, or numbers to include. Any logo asset file links which can be passed to the ppt agent to use can also be passed here."
             },
             "brand_logo_details": {
                 "type": "string",
-                "description": "Optional. Details about the brand logo - file path, URL, or description"
+                "description": "Details about the brand logo - file path, URL, or description"
             },
             "brand_guideline_details": {
                 "type": "string",
-                "description": "Optional. Brand guidelines including tone, voice, style preferences"
+                "description": "Brand guidelines including tone, voice, style preferences, font types anything relevant, if needed use the web search tool to get the required information, before passing"
             },
             "brand_color_details": {
                 "type": "string",
-                "description": "Optional. Brand colors in hex format (e.g., 'primary: #1E40AF, secondary: #F59E0B')"
+                "description": "Brand colors in hex format (e.g., 'primary: #1E40AF, secondary: #F59E0B')"
             }
         },
-        "required": ["ppt_topic", "ppt_description", "ppt_details"]
+        "required": ["ppt_topic", "ppt_description", "ppt_details", "ppt_data", "brand_logo_details", "brand_guideline_details", "brand_color_details"]
     }
 }
 
@@ -86,17 +85,7 @@ CREATE_FOLDER_TOOL = {
 
 CREATE_FILE_TOOL = {
     "name": "create_file",
-    "description": """Create a new HTML slide file with complete, valid HTML content.
-
-    CRITICAL REQUIREMENTS:
-
-    1. DIMENSIONS: 1920x1080px (16:9 aspect ratio) - Use w-[1920px] h-[1080px]
-
-    2. STRUCTURE: Must include complete HTML with:
-       - DOCTYPE, html, head, body tags
-       - Tailwind CSS CDN: https://cdn.tailwindcss.com
-       - Google Fonts for Inter font or any google font the user has requested
-       - Proper viewport and styling
+    "description": """Create a new HTML slide file with complete, valid HTML content or a css file with complete valid css content, for css always use tailwind css import from cdn in html files when needed, except the custom base css.
 
     The content parameter should contain the COMPLETE HTML file, not just a snippet.
     """,
@@ -109,7 +98,7 @@ CREATE_FILE_TOOL = {
             },
             "content": {
                 "type": "string",
-                "description": "Complete HTML file content including DOCTYPE, head, and body"
+                "description": "Complete HTML file content including DOCTYPE, head, and body, cdn imports of tailwind css, google fonts, icon packs etc when needed, or complete valid css content for css files"
             }
         },
         "required": ["file_path", "content"]
@@ -136,23 +125,6 @@ READ_FILE_TOOL = {
 UPDATE_FILE_TOOL = {
     "name": "update_file",
     "description": """Update an existing HTML slide file with corrected or modified content.
-
-    Use this to:
-    - Fix layout issues (misaligned elements, overflow)
-    - Correct spacing and padding errors
-    - Update colors or typography
-    - Improve design quality
-    - Fix any HTML/CSS errors
-
-    MUST FOLLOW SAME REQUIREMENTS AS create_file:
-    - Dimensions: 1920x1080px (w-[1920px] h-[1080px])
-    - Complete HTML structure (DOCTYPE, head, body)
-    - Tailwind CSS via CDN
-    - Proper spacing (p-12, p-16, p-20, space-y-6, gap-8)
-    - Brand colors as specified
-    - Professional typography (Inter font, text-6xl/7xl/8xl for headings, text-2xl/3xl/4xl for body)
-    - Content fits within dimensions, utilizing space intelligently
-
     The content parameter should be the COMPLETE updated HTML file.
     """,
     "input_schema": {

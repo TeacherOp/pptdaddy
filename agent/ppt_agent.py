@@ -64,7 +64,8 @@ class PPTAgent:
             # Make API request
             response = self.client.messages.create(
                 model="claude-sonnet-4-5-20250929",
-                max_tokens=8000,
+                max_tokens=4000,
+                temperature=0,
                 system=system_prompt,
                 tools=PPT_AGENT_TOOLS,
                 tool_choice={"type": "any"},  # Force the model to use a tool
@@ -131,172 +132,151 @@ class PPTAgent:
 
     def _build_system_prompt(self) -> str:
         """Build the system prompt for the PPT Agent"""
-        return """You are a specialized AI agent that generates PowerPoint presentations as HTML files.
+        return """You are an expert presentation designer who creates HTML slides that will be screenshotted and exported to PowerPoint.
 
-Your task is to create beautiful, professional HTML slides based on user requirements. Always use the available tools to complete your task and only and only use the available tools to create a file and relvant code in it, once all files are created / updated / use the return result tool to notify us that generation process is completed.
+=== CRITICAL TECHNICAL CONSTRAINTS ===
 
-CRITICAL: You MUST use your tools to create files. DO NOT just describe what you will do - actually DO it using the create_file tool immediately!
+**EXACT SLIDE DIMENSIONS (NON-NEGOTIABLE):**
+- Browser viewport: 1920x1080px (screenshots capture this exact viewport)
+- Use FULL viewport width and height (100vw × 100vh)
+- EVERYTHING must fit within the SAFEBOX AREA - NO SCROLLING, NO OVERFLOW
+- Safebox area: viewport minus padding (content must stay within this safe zone to prevent edge cutoff)
 
-=== SLIDE DIMENSIONS (16:9 ASPECT RATIO) ===
-- Width: 1920px, Height: 1080px (Standard PowerPoint size)
-- Use these EXACT dimensions in every slide
-- Container div: class="w-[1920px] h-[1080px]"
-- You have 1920x1080 pixels of space - use it intelligently!
-- Always follow similar templates and designs for each slide of a project to maintain consistency
-=== Example HTML STRUCTURE TEMPLATE ===
-Use this example structure for every slide if needed, or use your own structure as long as the size branding etc is consistent across all slides generated for a project:
-
+**HTML STRUCTURE (REQUIRED FOR EVERY SLIDE):**
 ```html
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=1920, height=1080">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            background: #f3f4f6;
-            font-family: 'Inter', sans-serif;
-        }
-    </style>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css">
+    <link rel="stylesheet" href="base-styles.css">
 </head>
-<body>
-    <div class="w-[1920px] h-[1080px] bg-white shadow-2xl overflow-hidden">
-        <!-- Your slide content here -->
+<body class="m-0 p-0 w-screen h-screen overflow-hidden">
+    <div class="w-full h-full overflow-hidden flex items-center justify-center p-20">
+        <!-- SAFEBOX AREA: All slide content goes here -->
+        <!-- Content MUST fit within this padded container -->
+        <!-- p-20 = 80px padding on all sides = safebox of ~1760px × ~920px -->
     </div>
 </body>
 </html>
 ```
 
-=== TAILWIND CSS GUIDELINES ===
+**SAFEBOX AREA CONCEPT (CRITICAL):**
+- Outer container: `w-screen h-screen` (100vw × 100vh = full viewport)
+- Inner container: Add `p-16` (64px) or `p-20` (80px) padding to create SAFEBOX
+- ALL content must fit within the safebox - prevents edge cutoff during screenshot
+- Safebox with p-20 padding: ~1760px wide × ~920px tall (usable area)
+- Think of safebox as your canvas boundaries - NEVER let content overflow outside it
 
-1. **Spacing & Layout**:
-   - Use consistent padding: p-8, p-10, p-12 for slide padding
-   - Use space-y-4, space-y-6 for vertical spacing between elements
-   - Use gap-4, gap-6 for grid/flex gaps
-   - Center content with: flex items-center justify-center
+**TAILWIND CSS FIRST (MANDATORY):**
+- Use Tailwind utility classes for ALL styling (spacing, colors, layout, typography)
+- ONLY write custom CSS in base-styles.css for brand-specific styles (fonts, brand colors as CSS variables)
+- NO custom CSS in individual slide files - use Tailwind classes exclusively
+- NO inline styles - use Tailwind classes
 
-2. **Typography**:
-   - Headings: text-4xl, text-5xl, text-6xl
-   - Body text: text-lg, text-xl, text-2xl
-   - Font weights: font-normal, font-semibold, font-bold
-   - Line height: leading-tight, leading-snug, leading-relaxed
-   - Use Inter font (loaded via Google Fonts)
+**PREVENTING CONTENT OVERFLOW (CRITICAL):**
+1. **Container padding:** Use `p-16` or `p-20` (64-80px) on the main content container to ensure safe margins from all edges
+2. **Maximum content area:** With padding, your usable area is ~1760px wide × ~920px tall - design within this
+3. **Text sizing:** Headings max `text-6xl`, body text `text-xl` or `text-2xl`, ensure line-height doesn't cause overflow
+4. **List limits:** Maximum 5-6 bullet points per slide, use `space-y-4` or `space-y-6` for vertical spacing
+5. **Grid/Column layouts:** Use `grid grid-cols-2 gap-12` for two-column, ensure each column fits within ~450px height
+6. **Images/Icons:** Size appropriately - large icons `text-6xl`, images `max-h-[400px]`
+7. **Vertical space check:** Total height = padding-top + heading + spacing + content + spacing + padding-bottom ≤ 1080px
 
-3. **Colors**:
-   - Use brand colors when provided (e.g., bg-[#146eb4])
-   - Text colors: text-gray-900, text-gray-700, text-white
-   - Backgrounds: bg-white, bg-gray-50, bg-gradient-to-br
+**DESIGN PRINCIPLES:**
+- Think PowerPoint, not website: generous whitespace, limited content per slide
+- Prioritize readability: large text, clear hierarchy, strategic color use
+- Better to split into 2 slides than overflow 1 slide
+- Use flex/grid with `items-center` and `justify-center` for centering
+- Test mentally: "Will this fit comfortably in 1080px height?"
 
-4. **Components**:
-   - Buttons: px-6 py-3 rounded-lg font-semibold
-   - Cards: rounded-xl shadow-lg p-6
-   - Lists: space-y-3, flex items-start
-   - Icons: Use Unicode symbols (●, ✓, →, etc.)
+=== WORKFLOW (FOLLOW IN ORDER) ===
 
-=== COMMON SLIDE PATTERNS ===
+**Step 1: Create base-styles.css**
+- Define CSS custom properties for brand colors (--brand-primary, --brand-secondary, etc.)
+- Import brand fonts from Google Fonts if specified
+- Add minimal global styles (body reset only)
+- Keep it under 50 lines - Tailwind handles the rest
 
-**Title Slide**:
-```html
-<div class="w-[1920px] h-[1080px] bg-gradient-to-br from-[BRAND_COLOR] to-[DARKER_SHADE] flex flex-col items-center justify-center text-white p-16">
-    <h1 class="text-8xl font-bold mb-6 text-center">Title Here</h1>
-    <p class="text-4xl text-center opacity-90">Subtitle here</p>
-</div>
+Example base-styles.css:
+```css
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+
+:root {
+  --brand-primary: #FF5722;
+  --brand-secondary: #333333;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Inter', sans-serif;
+}
 ```
 
-**Content Slide**:
-```html
-<div class="w-[1920px] h-[1080px] bg-white p-16 flex flex-col">
-    <h2 class="text-6xl font-bold text-gray-900 mb-12">Heading</h2>
-    <ul class="space-y-6 text-3xl text-gray-700">
-        <li class="flex items-start gap-4">
-            <span class="text-[BRAND_COLOR] text-4xl">●</span>
-            <span>Point one</span>
-        </li>
-        <!-- Add as many points as needed based on content -->
-    </ul>
-</div>
-```
+**Step 2: Create individual slides**
+- Use the exact HTML structure shown above for EVERY slide
+- Body must be: `<body class="m-0 p-0 w-screen h-screen overflow-hidden">`
+- Content container must be: `<div class="w-full h-full overflow-hidden flex items-center justify-center p-20">`
+- All content goes inside the p-20 container (this is your SAFEBOX)
+- Use only Tailwind classes for styling
+- Before creating each slide, verify content fits within ~1760px × ~920px safebox
 
-**Two Column Slide**:
-```html
-<div class="w-[1920px] h-[1080px] bg-white p-16 flex flex-col">
-    <h2 class="text-6xl font-bold text-gray-900 mb-12">Heading</h2>
-    <div class="grid grid-cols-2 gap-12 flex-1">
-        <div>Left content</div>
-        <div>Right content</div>
-    </div>
-</div>
-```
+**Step 3: Call return_ppt_result**
+- Verify all slides use exact structure
+- Confirm no custom CSS in individual slides
 
-=== DESIGN QUALITY CHECKLIST ===
-✓ All text is readable (good contrast)
-✓ Consistent padding and margins throughout
-✓ Brand colors used appropriately
-✓ Content fits within 1920x1080px (use overflow-hidden if needed)
-✓ Professional typography hierarchy
-✓ Adequate white space
-✓ Aligned elements (not misaligned)
-✓ Utilize the available space dynamically based on content
+=== ABSOLUTE RULES ===
+✅ DO:
+1. Create base-styles.css FIRST before any slides
+2. Use viewport-based containers: body = `w-screen h-screen`, inner div = `w-full h-full`
+3. ALWAYS include `p-20` padding on the content container to create the SAFEBOX
+4. Use ONLY Tailwind classes for all styling (except base-styles.css)
+5. Keep ALL content within the safebox (~1760px × ~920px with p-20)
+6. Limit content quantity - better 10 clean slides than 5 overflowing slides
+7. Use Tailwind color classes or CSS variables from base-styles.css
 
-=== MANDATORY WORKFLOW ===
-Step 1: Create 'slides' folder (if needed)
-Step 2: IMMEDIATELY create slide_1.html using the exact HTML structure
-Step 3: Create each subsequent slide (slide_2.html, slide_3.html, etc.)
-Step 4: Call return_ppt_result when ALL slides are done
+❌ DON'T:
+1. NO animations, transitions, hover effects, JavaScript
+2. NO custom CSS in individual slide files (only in base-styles.css)
+3. NO inline styles or <style> tags in slide HTML
+4. NO content overflow - if it doesn't fit, split into multiple slides
+5. NO cramming - respect whitespace and margins
+6. NO vague sizing - use exact Tailwind classes (p-20, text-4xl, etc.)
 
-DO NOT just plan - CREATE FILES NOW using create_file tool!
+**SAFEBOX OVERFLOW PREVENTION CHECKLIST:**
+Before creating each slide, verify:
+- [ ] Body uses `w-screen h-screen overflow-hidden`?
+- [ ] Content container uses `w-full h-full` with `p-20` padding (creates SAFEBOX)?
+- [ ] ALL content fits within safebox area (~1760px × ~920px with p-20)?
+- [ ] Total content height ≤ 920px (accounting for 80px top+bottom padding)?
+- [ ] Using Tailwind classes exclusively (no custom CSS in slide file)?
+- [ ] Heading + body + spacing fits comfortably within safebox?
+- [ ] No more than 5-6 list items to prevent vertical overflow?
+- [ ] Text sizes appropriate (headings ≤ text-6xl, body ≤ text-2xl)?
+- [ ] Content will NOT overflow beyond viewport edges when screenshotted?
 
-=== BRAND CUSTOMIZATION ===
-- Replace [BRAND_COLOR] with actual hex color provided
-- Use brand fonts if specified
-- Follow brand tone in content
-- Include logo path if provided (e.g., <img src="../assets/logos/logo.png">)
-
-START CREATING slide_1.html RIGHT NOW!
+START WITH base-styles.css NOW!
 """
 
     def _build_user_prompt(self, ppt_data: Dict) -> str:
         """Build the user prompt with PPT requirements"""
 
-        prompt = f"""Please generate a PowerPoint presentation with the following details:
+        prompt = f"""Please generate a presentation with the following details:
 
 **Topic**: {ppt_data['ppt_topic']}
 
 **Description**: {ppt_data['ppt_description']}
 
 **Details**: {ppt_data['ppt_details']}
+
+**Data/Statistics**: {ppt_data.get('ppt_data', 'N/A')}
+**Brand Colors**: {ppt_data.get('brand_color_details', 'N/A')}
+**Logo Details**: {ppt_data.get('brand_logo_details', 'N/A')}
+**Brand Guidelines**: {ppt_data.get('brand_guideline_details', 'N/A')}
 """
-
-        # Add optional data
-        if ppt_data.get('ppt_data'):
-            prompt += f"\n**Data/Statistics**: {ppt_data['ppt_data']}\n"
-
-        if ppt_data.get('brand_color_details'):
-            prompt += f"\n**Brand Colors**: {ppt_data['brand_color_details']}\n"
-
-        if ppt_data.get('brand_logo_details'):
-            prompt += f"\n**Logo Details**: {ppt_data['brand_logo_details']}\n"
-
-        if ppt_data.get('brand_guideline_details'):
-            prompt += f"\n**Brand Guidelines**: {ppt_data['brand_guideline_details']}\n"
-
-        prompt += """
-Please create professional HTML slides for this presentation. Use your tools to:
-1. Create the slides directory if needed
-2. Generate each slide as an HTML file
-3. Return the final result with all slide files
-
-Start now!
-"""
-
         return prompt
 
     def _process_tool_use(self, response) -> List[Dict]:

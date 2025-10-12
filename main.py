@@ -166,16 +166,44 @@ def quick_generate_mode(topic: str):
         print(f"\n❌ Error: {str(e)}")
 
 
+def web_mode():
+    """Launch the web interface"""
+    from app import main as web_main
+    web_main()
+
+
 def main():
     """Main entry point"""
 
     if len(sys.argv) > 1:
-        # Quick mode with topic from command line
-        topic = " ".join(sys.argv[1:])
-        quick_generate_mode(topic)
+        # Check for web mode flag
+        if sys.argv[1] in ['--web', '-w', 'web']:
+            web_mode()
+        else:
+            # Quick mode with topic from command line
+            topic = " ".join(sys.argv[1:])
+            quick_generate_mode(topic)
     else:
-        # Interactive mode
-        interactive_mode()
+        # Default to web mode (can change to interactive_mode() if preferred)
+        print("\n" + "="*60)
+        print("🎨 PPT DADDY - AI-Powered Presentation Generator")
+        print("="*60)
+        print("\nChoose a mode:")
+        print("  1. Web Interface (Recommended)")
+        print("  2. Terminal Interactive Mode")
+        print("\nEnter your choice (1 or 2): ", end="")
+
+        try:
+            choice = input().strip()
+            if choice == "1":
+                web_mode()
+            elif choice == "2":
+                interactive_mode()
+            else:
+                print("Invalid choice. Launching web interface...")
+                web_mode()
+        except KeyboardInterrupt:
+            print("\n\n👋 Goodbye!")
 
 
 if __name__ == "__main__":

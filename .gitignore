@@ -9,6 +9,9 @@ venv/
 ENV/
 exports/
 assets/
+sample_outputs/
+slides/
+screenshots/
 .claude/
 # Environment
 .env
@@ -22,6 +25,14 @@ assets/
 # Generated slides
 slides/*.html
 !slides/.gitkeep
+
+# Screenshots
+screenshots/*.png
+!screenshots/.gitkeep
+
+# Uploads (web mode)
+uploads/*
+!uploads/.gitkeep
 
 # Assets
 assets/logos/*

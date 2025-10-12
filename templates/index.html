@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PPT Daddy - AI Presentation Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
+        .chat-message {
+            animation: fadeIn 0.3s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .loading-dots span {
+            animation: blink 1.4s infinite;
+            animation-fill-mode: both;
+        }
+
+        .loading-dots span:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .loading-dots span:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        @keyframes blink {
+            0%, 80%, 100% { opacity: 0; }
+            40% { opacity: 1; }
+        }
+
+        .file-upload-area {
+            transition: all 0.3s ease;
+        }
+
+        .file-upload-area.drag-over {
+            border-color: #3B82F6;
+            background-color: #EFF6FF;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div class="min-h-screen flex flex-col">
+        <!-- Header -->
+        <header class="bg-white border-b border-gray-200 shadow-sm">
+            <div class="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="text-4xl">🎨</div>
+                    <div>
+                        <h1 class="text-2xl font-bold text-gray-900">PPT Daddy</h1>
+                        <p class="text-sm text-gray-500">AI-Powered Presentation Generator</p>
+                    </div>
+                </div>
+                <button
+                    onclick="resetChat()"
+                    class="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                    New Chat
+                </button>
+            </div>
+        </header>
+
+        <!-- Chat Container -->
+        <main class="flex-1 max-w-5xl w-full mx-auto px-4 py-6 flex flex-col">
+            <!-- Welcome Message -->
+            <div id="welcome" class="mb-6 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-8 border border-blue-100">
+                <h2 class="text-2xl font-bold text-gray-900 mb-3">Welcome! Let's create an amazing presentation</h2>
+                <p class="text-gray-600 mb-4">Tell me what you want to present, and I'll generate beautiful slides for you.</p>
+
+                <div class="grid md:grid-cols-3 gap-4 mt-6">
+                    <div class="bg-white p-4 rounded-xl border border-gray-200">
+                        <div class="text-2xl mb-2">💬</div>
+                        <h3 class="font-semibold text-gray-900 mb-1">Describe Your Topic</h3>
+                        <p class="text-sm text-gray-600">Tell me about your presentation needs</p>
+                    </div>
+                    <div class="bg-white p-4 rounded-xl border border-gray-200">
+                        <div class="text-2xl mb-2">📸</div>
+                        <h3 class="font-semibold text-gray-900 mb-1">Upload Images</h3>
+                        <p class="text-sm text-gray-600">Share logos or screenshots for branding</p>
+                    </div>
+                    <div class="bg-white p-4 rounded-xl border border-gray-200">
+                        <div class="text-2xl mb-2">📊</div>
+                        <h3 class="font-semibold text-gray-900 mb-1">Download PPTX</h3>
+                        <p class="text-sm text-gray-600">Get your PowerPoint file instantly</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Messages -->
+            <div id="messages" class="flex-1 space-y-4 mb-6 overflow-y-auto">
+                <!-- Messages will be added here -->
+            </div>
+
+            <!-- Download Section (hidden by default) -->
+            <div id="download-section" class="hidden mb-6 bg-green-50 border border-green-200 rounded-xl p-6">
+                <div class="flex items-start gap-4">
+                    <div class="text-4xl">✅</div>
+                    <div class="flex-1">
+                        <h3 class="text-lg font-bold text-green-900 mb-2">Presentation Ready!</h3>
+                        <p class="text-green-700 mb-4">Your PowerPoint presentation has been generated successfully.</p>
+                        <div class="flex gap-3">
+                            <a
+                                href="/api/download"
+                                class="inline-flex items-center gap-2 px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition-colors"
+                            >
+                                <span>📥</span>
+                                <span id="download-filename">Download Presentation</span>
+                            </a>
+                            <button
+                                onclick="resetChat()"
+                                class="px-6 py-3 bg-white hover:bg-gray-50 text-gray-700 font-semibold rounded-lg border border-gray-300 transition-colors"
+                            >
+                                Create Another
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Input Form -->
+            <div class="bg-white rounded-2xl border border-gray-200 shadow-lg">
+                <form id="chat-form" class="p-4" onsubmit="sendMessage(event)">
+                    <!-- File Upload Area -->
+                    <div id="file-upload-area" class="file-upload-area mb-4 border-2 border-dashed border-gray-300 rounded-xl p-6 text-center cursor-pointer hover:border-gray-400 transition-colors">
+                        <input
+                            type="file"
+                            id="file-input"
+                            name="files[]"
+                            multiple
+                            accept="image/*"
+                            class="hidden"
+                            onchange="handleFileSelect(event)"
+                        >
+                        <label for="file-input" class="cursor-pointer">
+                            <div class="text-3xl mb-2">📎</div>
+                            <p class="text-sm font-medium text-gray-700">Click to upload images or drag & drop</p>
+                            <p class="text-xs text-gray-500 mt-1">PNG, JPG, GIF up to 16MB</p>
+                        </label>
+                        <div id="file-list" class="mt-3 space-y-2 hidden"></div>
+                    </div>
+
+                    <!-- Message Input -->
+                    <div class="flex gap-3">
+                        <textarea
+                            id="message-input"
+                            name="message"
+                            rows="3"
+                            placeholder="Describe your presentation... (e.g., 'I need a pitch deck for my AI startup')"
+                            class="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                            required
+                        ></textarea>
+                        <button
+                            type="submit"
+                            id="send-button"
+                            class="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            Send
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        let selectedFiles = [];
+
+        // Handle file selection
+        function handleFileSelect(event) {
+            const files = Array.from(event.target.files);
+            selectedFiles = files;
+            displayFileList();
+        }
+
+        // Display selected files
+        function displayFileList() {
+            const fileList = document.getElementById('file-list');
+
+            if (selectedFiles.length === 0) {
+                fileList.classList.add('hidden');
+                return;
+            }
+
+            fileList.classList.remove('hidden');
+            fileList.innerHTML = selectedFiles.map((file, index) => `
+                <div class="flex items-center justify-between bg-gray-50 px-3 py-2 rounded-lg">
+                    <span class="text-sm text-gray-700 flex items-center gap-2">
+                        <span>📎</span>
+                        <span>${file.name}</span>
+                    </span>
+                    <button
+                        type="button"
+                        onclick="removeFile(${index})"
+                        class="text-red-500 hover:text-red-700 text-sm font-medium"
+                    >
+                        Remove
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        // Remove a file
+        function removeFile(index) {
+            selectedFiles.splice(index, 1);
+            displayFileList();
+        }
+
+        // Drag and drop handlers
+        const uploadArea = document.getElementById('file-upload-area');
+        const fileInput = document.getElementById('file-input');
+
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('drag-over');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('drag-over');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('drag-over');
+
+            const files = Array.from(e.dataTransfer.files).filter(file =>
+                file.type.startsWith('image/')
+            );
+
+            selectedFiles = files;
+            displayFileList();
+        });
+
+        // Add a message to the chat
+        function addMessage(role, content, imageCount = 0) {
+            const messages = document.getElementById('messages');
+            const welcome = document.getElementById('welcome');
+
+            // Hide welcome message after first user message
+            if (role === 'user' && welcome) {
+                welcome.style.display = 'none';
+            }
+
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `chat-message flex ${role === 'user' ? 'justify-end' : 'justify-start'}`;
+
+            const bgColor = role === 'user' ? 'bg-blue-600 text-white' : 'bg-white border border-gray-200';
+            const textColor = role === 'user' ? 'text-white' : 'text-gray-900';
+
+            let imageIndicator = '';
+            if (imageCount > 0) {
+                imageIndicator = `<div class="text-xs opacity-75 mb-2">📎 ${imageCount} image${imageCount > 1 ? 's' : ''} attached</div>`;
+            }
+
+            messageDiv.innerHTML = `
+                <div class="max-w-3xl px-4 py-3 rounded-2xl ${bgColor}">
+                    ${imageIndicator}
+                    <div class="${textColor} whitespace-pre-wrap">${escapeHtml(content)}</div>
+                </div>
+            `;
+
+            messages.appendChild(messageDiv);
+            messages.scrollTop = messages.scrollHeight;
+        }
+
+        // Show loading indicator
+        function showLoading() {
+            const messages = document.getElementById('messages');
+            const loadingDiv = document.createElement('div');
+            loadingDiv.id = 'loading-indicator';
+            loadingDiv.className = 'chat-message flex justify-start';
+            loadingDiv.innerHTML = `
+                <div class="max-w-3xl px-4 py-3 rounded-2xl bg-white border border-gray-200">
+                    <div class="flex items-center gap-3">
+                        <div class="loading-dots flex gap-1">
+                            <span class="w-2 h-2 bg-gray-400 rounded-full"></span>
+                            <span class="w-2 h-2 bg-gray-400 rounded-full"></span>
+                            <span class="w-2 h-2 bg-gray-400 rounded-full"></span>
+                        </div>
+                        <span class="text-gray-500 text-sm">AI is thinking...</span>
+                    </div>
+                </div>
+            `;
+            messages.appendChild(loadingDiv);
+            messages.scrollTop = messages.scrollHeight;
+        }
+
+        // Hide loading indicator
+        function hideLoading() {
+            const loading = document.getElementById('loading-indicator');
+            if (loading) {
+                loading.remove();
+            }
+        }
+
+        // Send message
+        async function sendMessage(event) {
+            event.preventDefault();
+
+            const messageInput = document.getElementById('message-input');
+            const sendButton = document.getElementById('send-button');
+            const message = messageInput.value.trim();
+
+            if (!message) return;
+
+            // Disable form
+            messageInput.disabled = true;
+            sendButton.disabled = true;
+
+            // Add user message
+            addMessage('user', message, selectedFiles.length);
+
+            // Show loading
+            showLoading();
+
+            // Prepare form data
+            const formData = new FormData();
+            formData.append('message', message);
+
+            selectedFiles.forEach(file => {
+                formData.append('files[]', file);
+            });
+
+            try {
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                hideLoading();
+
+                if (data.error) {
+                    addMessage('assistant', `Error: ${data.error}`);
+                } else {
+                    addMessage('assistant', data.response);
+
+                    // Show download section if PPTX is ready
+                    if (data.has_pptx) {
+                        const downloadSection = document.getElementById('download-section');
+                        const downloadFilename = document.getElementById('download-filename');
+                        downloadSection.classList.remove('hidden');
+                        if (data.pptx_filename) {
+                            downloadFilename.textContent = `Download ${data.pptx_filename}`;
+                        }
+                    }
+                }
+            } catch (error) {
+                hideLoading();
+                addMessage('assistant', `Error: ${error.message}`);
+            } finally {
+                // Reset form
+                messageInput.value = '';
+                messageInput.disabled = false;
+                sendButton.disabled = false;
+                messageInput.focus();
+
+                // Clear files
+                selectedFiles = [];
+                fileInput.value = '';
+                displayFileList();
+            }
+        }
+
+        // Reset chat
+        async function resetChat() {
+            if (!confirm('Start a new conversation? This will clear the current chat.')) {
+                return;
+            }
+
+            try {
+                await fetch('/api/reset', { method: 'POST' });
+                location.reload();
+            } catch (error) {
+                alert('Error resetting chat: ' + error.message);
+            }
+        }
+
+        // Escape HTML
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Focus on input on load
+        document.getElementById('message-input').focus();
+    </script>
+</body>
+</html>

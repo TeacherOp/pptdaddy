@@ -10,10 +10,11 @@ Generate stunning PowerPoint presentations using AI! Just describe what you want
 
 ## ✨ Features
 
+- 🌐 **Web Interface** - Beautiful browser-based UI with drag-and-drop file upload
 - 🤖 **AI-Powered Generation** - Uses Anthropic Claude to create presentations
 - 🎨 **Custom Branding** - Supports brand colors, logos, and guidelines
 - 📸 **Image Analysis** - Analyzes your logo and screenshots for brand consistency
-- 🌐 **Web Search** - Finds current information for your presentations
+- 🔍 **Web Search** - Finds current information for your presentations
 - 💼 **Professional Templates** - Beautiful, modern slide designs using Tailwind CSS
 - 📊 **PPTX Export** - Automatically exports to PowerPoint format
 - 🖼️ **HTML Slides** - View slides directly in your browser (1920x1080px)
@@ -60,8 +61,17 @@ cp .env.example .env
 
 ### Run
 
+**Web Interface (Recommended):**
 ```bash
 python main.py
+# Choose option 1 for Web Interface
+# Open http://localhost:5000 in your browser
+```
+
+**Direct Web Launch:**
+```bash
+python app.py
+# Open http://localhost:5000 in your browser
 ```
 
 That's it! 🎉
@@ -70,42 +80,59 @@ That's it! 🎉
 
 ## 📖 Usage
 
-### Interactive Mode (Recommended)
+### Web Interface (Recommended) 🌐
+
+The easiest way to use PPT Daddy is through the web interface:
+
+1. **Start the server:**
+   ```bash
+   python main.py
+   # Choose option 1, or run: python app.py
+   ```
+
+2. **Open your browser:**
+   - Navigate to `http://localhost:5000`
+
+3. **Create your presentation:**
+   - Type your request in the chat box
+   - Upload images (logos, screenshots) for branding
+   - Chat with the AI to refine your presentation
+   - Download your PPTX file when ready!
+
+**Example Workflow:**
+1. "I need a pitch deck for my AI startup called DataFlow"
+2. Upload your logo
+3. AI asks clarifying questions
+4. AI generates slides
+5. Click "Download Presentation" button
+
+### Terminal Interactive Mode
+
+For terminal users who prefer CLI:
 
 ```bash
 python main.py
+# Choose option 2 for Terminal Mode
 ```
 
-The AI will guide you through creating your presentation:
-
-```
-You: I need a pitch deck for my AI startup called "DataFlow"
-
-AI: Great! I'd love to help you create a pitch deck for DataFlow.
-    What does DataFlow do and what slides do you want to include?
-
-You: We help companies automate data pipelines. Include: problem,
-     solution, market size, our tech, team, and ask. Use colors
-     #2563EB and #F59E0B
-
-AI: Perfect! Let me generate your pitch deck...
-
-✅ Successfully generated presentation!
-   Slide count: 8
-   📊 PPTX File: exports/DataFlow_Pitch_Deck.pptx
-   You can open this file in PowerPoint or Keynote!
-```
+The AI will guide you through creating your presentation in the terminal.
 
 ### Quick Mode
+
+Generate a presentation with a single command:
 
 ```bash
 python main.py "Create a Q4 roadmap presentation"
 ```
 
-### With Images
+### Working with Images
 
+**Web Interface:**
+- Drag and drop images or click to upload
+- Supports PNG, JPG, GIF up to 16MB
+
+**Terminal Mode:**
 Place your logo and screenshots in the `assets/` folder, then:
-
 ```
 You: Create a presentation for my startup image:assets/logos/logo.png image:assets/images/app.jpg
 ```
@@ -141,7 +168,10 @@ User Input → Main AI Chat → PPT AI Agent → HTML Slides → Screenshots →
 
 ```
 pptdaddy/
-├── main.py                 # Entry point
+├── main.py                 # Entry point (CLI launcher)
+├── app.py                  # Flask web application
+├── templates/
+│   └── index.html         # Web UI (Jinja + Tailwind CSS)
 ├── agent/
 │   ├── main_chat.py       # Main AI chat interface
 │   ├── ppt_agent.py       # PPT generation agent
@@ -153,6 +183,7 @@ pptdaddy/
 ├── slides/                # Generated HTML slides
 ├── exports/               # Generated PPTX files
 ├── screenshots/           # Slide screenshots
+├── uploads/               # Uploaded user images (web mode)
 ├── assets/                # Your brand assets
 │   ├── logos/
 │   └── images/
@@ -171,6 +202,7 @@ Create a `.env` file:
 ANTHROPIC_API_KEY=your-api-key-here
 FLASK_PORT=5000
 FLASK_DEBUG=True
+FLASK_SECRET_KEY=change-this-to-a-random-secret-key-in-production
 ```
 
 ### Slide Dimensions
@@ -289,13 +321,14 @@ If you find PPT Daddy useful, please consider giving it a star ⭐️
 
 ## 🔮 Future Roadmap
 
+- [x] Web UI interface ✅
 - [ ] PDF export option
-- [ ] Web UI interface
+- [ ] Real-time collaboration
 - [ ] Template marketplace
-- [ ] Collaboration features
 - [ ] Cloud hosting option
 - [ ] More slide templates
 - [ ] Animation support
+- [ ] Multi-user sessions
 
 ---
 
