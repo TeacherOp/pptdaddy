@@ -7,7 +7,7 @@ from pptx import Presentation
 from pptx.util import Inches
 
 
-def create_pptx_from_screenshots(screenshots: list, output_file: str = "exports/presentation.pptx", presentation_title: str = "Presentation") -> str:
+def create_pptx_from_screenshots(screenshots: list, output_file: str = "exports/presentation.pptx", presentation_title: str = "Presentation", progress_callback=None) -> str:
     """
     Create a PowerPoint file from screenshot images
 
@@ -15,6 +15,7 @@ def create_pptx_from_screenshots(screenshots: list, output_file: str = "exports/
         screenshots: List of screenshot file paths
         output_file: Output PPTX file path
         presentation_title: Title of the presentation
+        progress_callback: Optional callback function(event_type, data)
 
     Returns:
         Path to the created PPTX file
@@ -58,6 +59,13 @@ def create_pptx_from_screenshots(screenshots: list, output_file: str = "exports/
             )
 
             print(f"   ✅ Added slide {i}")
+
+            # Emit progress event
+            if progress_callback:
+                progress_callback('pptx_slide_added', {
+                    'slide_number': i,
+                    'total_slides': len(screenshots)
+                })
 
         except Exception as e:
             print(f"   ❌ Error adding slide {i}: {str(e)}")

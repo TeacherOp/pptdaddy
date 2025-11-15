@@ -14,11 +14,17 @@ from utils.export import create_pptx_from_screenshots
 class PPTAgent:
     """AI Agent that generates PowerPoint slides as HTML files"""
 
-    def __init__(self, api_key: str = None):
+    def __init__(self, api_key: str = None, progress_callback=None):
         self.api_key = api_key or os.environ.get("ANTHROPIC_API_KEY")
         self.client = anthropic.Anthropic(api_key=self.api_key)
         self.tool_executor = PPTToolExecutor()
         self.messages = []
+        self.progress_callback = progress_callback
+
+    def _emit_progress(self, event_type: str, data: dict):
+        """Emit a progress event if callback is set"""
+        if self.progress_callback:
+            self.progress_callback(event_type, data)
 
     def generate_presentation(self, ppt_data: Dict) -> Dict:
         """
@@ -52,6 +58,11 @@ class PPTAgent:
         print("="*60)
         print(f"\nGenerating presentation: {ppt_data['ppt_topic']}\n")
 
+        self._emit_progress('agent_started', {
+            'message': f"🤖 PPT AI Agent Started",
+            'topic': ppt_data['ppt_topic']
+        })
+
         # Agent loop - continues until return_ppt_result is called
         max_iterations = 30
         iteration = 0
@@ -60,6 +71,7 @@ class PPTAgent:
         while iteration < max_iterations:
             iteration += 1
             print(f"\n--- Iteration {iteration} ---")
+            self._emit_progress('iteration', {'iteration': iteration})
 
             # Make API request
             response = self.client.messages.create(
@@ -292,10 +304,22 @@ START WITH base-styles.css NOW!
                 print(f"\n🔧 Tool: {tool_name}")
                 print(f"   Input: {tool_input}")
 
+                # Emit tool use event
+                self._emit_progress('tool_use', {
+                    'tool': tool_name,
+                    'input': tool_input
+                })
+
                 # Execute the tool
                 result = self.tool_executor.execute_tool(tool_name, tool_input)
 
                 print(f"   Result: {result[:200]}..." if len(result) > 200 else f"   Result: {result}")
+
+                # Emit tool result event
+                self._emit_progress('tool_result', {
+                    'tool': tool_name,
+                    'result': result[:200] if len(result) > 200 else result
+                })
 
                 # Check if it's an error
                 is_error = result.startswith("Error:")
@@ -350,25 +374,43 @@ START WITH base-styles.css NOW!
             print("📤 Exporting to PPTX")
             print("="*60)
 
+            self._emit_progress('export_started', {
+                'message': '📤 Exporting to PPTX'
+            })
+
             slide_files = result["slide_files"]
 
+            self._emit_progress('capturing_screenshots', {
+                'message': '📸 Capturing screenshots...',
+                'slide_count': len(slide_files)
+            })
+
             # Capture screenshots
-            screenshots = capture_slide_screenshots(slide_files)
+            screenshots = capture_slide_screenshots(slide_files, progress_callback=self._emit_progress)
 
             if not screenshots:
                 print("⚠️  No screenshots captured, skipping PPTX export")
                 return result
 
             # Create PPTX
+            self._emit_progress('creating_pptx', {
+                'message': '📊 Creating PPTX presentation...'
+            })
+
             pptx_file = create_pptx_from_screenshots(
                 screenshots,
                 output_file=f"exports/{presentation_title.replace(' ', '_')}.pptx",
-                presentation_title=presentation_title
+                presentation_title=presentation_title,
+                progress_callback=self._emit_progress
             )
 
             # Add PPTX file to result
             result["pptx_file"] = pptx_file
             result["screenshots"] = screenshots
+
+            self._emit_progress('export_complete', {
+                'message': f'✅ PPTX created: {pptx_file}'
+            })
 
             return result
 

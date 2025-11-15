@@ -7,13 +7,14 @@ from pathlib import Path
 from playwright.sync_api import sync_playwright
 
 
-def capture_slide_screenshots(slide_files: list, output_dir: str = "screenshots") -> list:
+def capture_slide_screenshots(slide_files: list, output_dir: str = "screenshots", progress_callback=None) -> list:
     """
     Capture screenshots of HTML slides using Playwright
 
     Args:
         slide_files: List of HTML file paths
         output_dir: Directory to save screenshots
+        progress_callback: Optional callback function(event_type, data)
 
     Returns:
         List of screenshot file paths
@@ -63,6 +64,14 @@ def capture_slide_screenshots(slide_files: list, output_dir: str = "screenshots"
 
                 screenshots.append(str(screenshot_file))
                 print(f"   ✅ Captured: {screenshot_file.name}")
+
+                # Emit progress event
+                if progress_callback:
+                    progress_callback('screenshot_captured', {
+                        'slide_number': i,
+                        'total_slides': len(slide_files),
+                        'filename': screenshot_file.name
+                    })
 
             except Exception as e:
                 print(f"   ❌ Error capturing {slide_file}: {str(e)}")

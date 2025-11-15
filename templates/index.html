@@ -20,6 +20,10 @@
             to { opacity: 1; transform: translateY(0); }
         }
 
+        .fade-in {
+            animation: fadeIn 0.2s ease-in;
+        }
+
         .loading-dots span {
             animation: blink 1.4s infinite;
             animation-fill-mode: both;
@@ -271,37 +275,71 @@
             messages.scrollTop = messages.scrollHeight;
         }
 
-        // Show loading indicator
-        function showLoading() {
+        // Show progress panel
+        function showProgress() {
             const messages = document.getElementById('messages');
-            const loadingDiv = document.createElement('div');
-            loadingDiv.id = 'loading-indicator';
-            loadingDiv.className = 'chat-message flex justify-start';
-            loadingDiv.innerHTML = `
-                <div class="max-w-3xl px-4 py-3 rounded-2xl bg-white border border-gray-200">
-                    <div class="flex items-center gap-3">
+            const progressDiv = document.createElement('div');
+            progressDiv.id = 'progress-indicator';
+            progressDiv.className = 'chat-message flex justify-start';
+            progressDiv.innerHTML = `
+                <div class="max-w-4xl w-full px-6 py-4 rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-200">
+                    <div class="flex items-center gap-3 mb-3">
                         <div class="loading-dots flex gap-1">
-                            <span class="w-2 h-2 bg-gray-400 rounded-full"></span>
-                            <span class="w-2 h-2 bg-gray-400 rounded-full"></span>
-                            <span class="w-2 h-2 bg-gray-400 rounded-full"></span>
+                            <span class="w-2 h-2 bg-blue-500 rounded-full"></span>
+                            <span class="w-2 h-2 bg-blue-500 rounded-full"></span>
+                            <span class="w-2 h-2 bg-blue-500 rounded-full"></span>
                         </div>
-                        <span class="text-gray-500 text-sm">AI is thinking...</span>
+                        <span class="text-blue-900 font-semibold">AI is working...</span>
+                    </div>
+                    <div id="progress-log" class="space-y-2 max-h-96 overflow-y-auto">
+                        <!-- Progress updates will appear here -->
                     </div>
                 </div>
             `;
-            messages.appendChild(loadingDiv);
+            messages.appendChild(progressDiv);
             messages.scrollTop = messages.scrollHeight;
         }
 
-        // Hide loading indicator
-        function hideLoading() {
-            const loading = document.getElementById('loading-indicator');
-            if (loading) {
-                loading.remove();
+        // Add progress update
+        function addProgressUpdate(message, icon = '🔄', type = 'info') {
+            const progressLog = document.getElementById('progress-log');
+            if (!progressLog) return;
+
+            const colors = {
+                'info': 'bg-blue-100 text-blue-800 border-blue-200',
+                'success': 'bg-green-100 text-green-800 border-green-200',
+                'warning': 'bg-yellow-100 text-yellow-800 border-yellow-200',
+                'error': 'bg-red-100 text-red-800 border-red-200'
+            };
+
+            const updateDiv = document.createElement('div');
+            updateDiv.className = `p-2 rounded-lg border ${colors[type] || colors.info} text-sm fade-in`;
+            updateDiv.innerHTML = `
+                <div class="flex items-start gap-2">
+                    <span class="text-base">${icon}</span>
+                    <span class="flex-1">${escapeHtml(message)}</span>
+                </div>
+            `;
+
+            progressLog.appendChild(updateDiv);
+
+            // Auto-scroll to bottom
+            progressLog.scrollTop = progressLog.scrollHeight;
+
+            // Also scroll main messages container
+            const messages = document.getElementById('messages');
+            messages.scrollTop = messages.scrollHeight;
+        }
+
+        // Hide progress indicator
+        function hideProgress() {
+            const progress = document.getElementById('progress-indicator');
+            if (progress) {
+                progress.remove();
             }
         }
 
-        // Send message
+        // Send message with streaming
         async function sendMessage(event) {
             event.preventDefault();
 
@@ -318,8 +356,8 @@
             // Add user message
             addMessage('user', message, selectedFiles.length);
 
-            // Show loading
-            showLoading();
+            // Show progress panel
+            showProgress();
 
             // Prepare form data
             const formData = new FormData();
@@ -330,32 +368,40 @@
             });
 
             try {
-                const response = await fetch('/api/chat', {
+                const response = await fetch('/api/chat/stream', {
                     method: 'POST',
                     body: formData
                 });
 
-                const data = await response.json();
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
 
-                hideLoading();
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
 
-                if (data.error) {
-                    addMessage('assistant', `Error: ${data.error}`);
-                } else {
-                    addMessage('assistant', data.response);
+                while (true) {
+                    const {value, done} = await reader.read();
 
-                    // Show download section if PPTX is ready
-                    if (data.has_pptx) {
-                        const downloadSection = document.getElementById('download-section');
-                        const downloadFilename = document.getElementById('download-filename');
-                        downloadSection.classList.remove('hidden');
-                        if (data.pptx_filename) {
-                            downloadFilename.textContent = `Download ${data.pptx_filename}`;
+                    if (done) break;
+
+                    buffer += decoder.decode(value, {stream: true});
+
+                    // Process complete lines
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop() || ''; // Keep incomplete line in buffer
+
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            const data = JSON.parse(line.substring(6));
+                            handleStreamEvent(data);
                         }
                     }
                 }
+
             } catch (error) {
-                hideLoading();
+                hideProgress();
                 addMessage('assistant', `Error: ${error.message}`);
             } finally {
                 // Reset form
@@ -368,6 +414,98 @@
                 selectedFiles = [];
                 fileInput.value = '';
                 displayFileList();
+            }
+        }
+
+        // Handle stream events
+        function handleStreamEvent(event) {
+            const eventType = event.event;
+            const data = event.data;
+
+            // Map events to user-friendly messages
+            switch(eventType) {
+                case 'generate_ppt_started':
+                    addProgressUpdate(data.message, '🚀', 'info');
+                    break;
+
+                case 'agent_started':
+                    addProgressUpdate(data.message, '🤖', 'info');
+                    break;
+
+                case 'iteration':
+                    addProgressUpdate(`Processing iteration ${data.iteration}...`, '🔄', 'info');
+                    break;
+
+                case 'tool_use':
+                    const toolIcons = {
+                        'create_file': '📄',
+                        'update_file': '✏️',
+                        'read_file': '📖',
+                        'list_files': '📋',
+                        'create_folder': '📁',
+                        'return_ppt_result': '✅'
+                    };
+                    const icon = toolIcons[data.tool] || '🔧';
+                    const toolName = data.tool.replace('_', ' ').toUpperCase();
+
+                    if (data.tool === 'create_file') {
+                        const fileName = data.input?.file_path?.split('/').pop() || 'file';
+                        addProgressUpdate(`Creating ${fileName}`, icon, 'info');
+                    } else {
+                        addProgressUpdate(`Using tool: ${toolName}`, icon, 'info');
+                    }
+                    break;
+
+                case 'tool_result':
+                    // Only show results for important tools
+                    if (data.result && data.result.includes('Successfully created')) {
+                        addProgressUpdate(data.result.split('\n')[0], '✅', 'success');
+                    }
+                    break;
+
+                case 'export_started':
+                    addProgressUpdate(data.message, '📤', 'info');
+                    break;
+
+                case 'capturing_screenshots':
+                    addProgressUpdate(`${data.message} (${data.slide_count} slides)`, '📸', 'info');
+                    break;
+
+                case 'screenshot_captured':
+                    addProgressUpdate(`Captured slide ${data.slide_number}/${data.total_slides}`, '✅', 'success');
+                    break;
+
+                case 'creating_pptx':
+                    addProgressUpdate(data.message, '📊', 'info');
+                    break;
+
+                case 'pptx_slide_added':
+                    addProgressUpdate(`Added slide ${data.slide_number}/${data.total_slides} to PPTX`, '➕', 'success');
+                    break;
+
+                case 'export_complete':
+                    addProgressUpdate(data.message, '🎉', 'success');
+                    break;
+
+                case 'complete':
+                    hideProgress();
+                    addMessage('assistant', data.response);
+
+                    // Show download section if PPTX is ready
+                    if (data.has_pptx) {
+                        const downloadSection = document.getElementById('download-section');
+                        const downloadFilename = document.getElementById('download-filename');
+                        downloadSection.classList.remove('hidden');
+                        if (data.pptx_filename) {
+                            downloadFilename.textContent = `Download ${data.pptx_filename}`;
+                        }
+                    }
+                    break;
+
+                case 'error':
+                    hideProgress();
+                    addMessage('assistant', `Error: ${data.message}`);
+                    break;
             }
         }
 

@@ -13,11 +13,17 @@ from .ppt_agent import PPTAgent
 class MainChat:
     """Main AI Chat that collects user requirements and generates presentations"""
 
-    def __init__(self, api_key: str = None):
+    def __init__(self, api_key: str = None, progress_callback=None):
         self.api_key = api_key or os.environ.get("ANTHROPIC_API_KEY")
         self.client = anthropic.Anthropic(api_key=self.api_key)
         self.messages = []
-        self.ppt_agent = PPTAgent(api_key=self.api_key)
+        self.progress_callback = progress_callback
+        self.ppt_agent = None  # Will be created with progress callback when needed
+
+    def _emit_progress(self, event_type: str, data: dict):
+        """Emit a progress event if callback is set"""
+        if self.progress_callback:
+            self.progress_callback(event_type, data)
 
     def start_conversation(self, initial_message: str, images: Optional[List[str]] = None):
         """
@@ -241,7 +247,15 @@ class MainChat:
         print("📊 Triggering PPT Generation...")
         print("-"*60)
 
+        self._emit_progress('generate_ppt_started', {
+            'message': '📊 Triggering PPT Generation...',
+            'topic': tool_input.get('ppt_topic', 'Unknown')
+        })
+
         try:
+            # Create PPT Agent with progress callback
+            self.ppt_agent = PPTAgent(api_key=self.api_key, progress_callback=self.progress_callback)
+
             # Call the PPT Agent
             result = self.ppt_agent.generate_presentation(tool_input)
 

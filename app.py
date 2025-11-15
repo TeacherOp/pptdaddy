@@ -8,8 +8,9 @@ import os
 import json
 import uuid
 import time
+import queue
 from pathlib import Path
-from flask import Flask, render_template, request, jsonify, send_file, session
+from flask import Flask, render_template, request, jsonify, send_file, session, Response, stream_with_context
 from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
 from agent.main_chat import MainChat
@@ -61,6 +62,152 @@ def index():
     # Clear any existing session
     session.clear()
     return render_template('index.html')
+
+
+@app.route('/api/chat/stream', methods=['POST'])
+def chat_stream():
+    """Handle chat messages with streaming progress updates"""
+    try:
+        # Get or create session
+        session_id, chat_session = get_or_create_session()
+
+        message = request.form.get('message', '').strip()
+
+        if not message:
+            return jsonify({'error': 'Message is required'}), 400
+
+        # Handle file uploads
+        uploaded_files = []
+        if 'files[]' in request.files:
+            files = request.files.getlist('files[]')
+            for file in files:
+                if file and file.filename and allowed_file(file.filename):
+                    filename = secure_filename(file.filename)
+                    unique_filename = f"{session_id}_{filename}"
+                    filepath = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
+                    file.save(filepath)
+                    uploaded_files.append(filepath)
+
+        # Determine if this is the first message
+        is_first_message = len(chat_session['messages']) == 0
+
+        # Store user message
+        chat_session['messages'].append({
+            'role': 'user',
+            'content': message,
+            'images': uploaded_files
+        })
+
+        # Create a progress queue for streaming events
+        progress_queue = queue.Queue()
+
+        def progress_callback(event_type, data):
+            """Callback function to receive progress updates"""
+            progress_queue.put({'event': event_type, 'data': data})
+
+        def generate():
+            """Generator function for Server-Sent Events"""
+            try:
+                # Create new chat instance with progress callback
+                chat_instance = MainChat(
+                    api_key=os.environ.get("ANTHROPIC_API_KEY"),
+                    progress_callback=progress_callback
+                )
+
+                # Copy conversation history
+                chat_instance.messages = chat_session['chat'].messages.copy()
+
+                # Get AI response in a separate thread-like manner
+                import threading
+                response_container = {'response': None, 'error': None}
+
+                def run_chat():
+                    try:
+                        if is_first_message:
+                            response = chat_instance.start_conversation(
+                                message,
+                                uploaded_files if uploaded_files else None
+                            )
+                        else:
+                            response = chat_instance.send_message(
+                                message,
+                                uploaded_files if uploaded_files else None
+                            )
+                        response_container['response'] = response
+                    except Exception as e:
+                        response_container['error'] = str(e)
+                    finally:
+                        progress_queue.put({'event': 'done', 'data': {}})
+
+                # Start chat in background thread
+                thread = threading.Thread(target=run_chat)
+                thread.start()
+
+                # Stream progress events
+                while True:
+                    try:
+                        event = progress_queue.get(timeout=0.1)
+
+                        if event['event'] == 'done':
+                            # Update session chat instance
+                            chat_session['chat'] = chat_instance
+
+                            # Check for errors
+                            if response_container['error']:
+                                yield f"data: {json.dumps({'event': 'error', 'data': {'message': response_container['error']}})}\n\n"
+                            else:
+                                # Store AI response
+                                chat_session['messages'].append({
+                                    'role': 'assistant',
+                                    'content': response_container['response']
+                                })
+
+                                # Check if PPTX was generated
+                                pptx_file = None
+                                session_start_time = chat_session.get('session_start_time', 0)
+
+                                exports_dir = Path('exports')
+                                if exports_dir.exists():
+                                    pptx_files = sorted(exports_dir.glob('*.pptx'), key=os.path.getmtime, reverse=True)
+                                    for pptx_path in pptx_files:
+                                        if os.path.getmtime(pptx_path) > session_start_time:
+                                            pptx_file = str(pptx_path)
+                                            chat_session['pptx_file'] = pptx_file
+                                            break
+
+                                # Send completion event
+                                yield f"data: {json.dumps({'event': 'complete', 'data': {'response': response_container['response'], 'has_pptx': pptx_file is not None, 'pptx_filename': os.path.basename(pptx_file) if pptx_file else None}})}\n\n"
+                            break
+                        else:
+                            # Stream progress event
+                            yield f"data: {json.dumps(event)}\n\n"
+
+                    except queue.Empty:
+                        # Keep connection alive
+                        yield f": keepalive\n\n"
+
+                        # Check if thread is still alive
+                        if not thread.is_alive() and progress_queue.empty():
+                            break
+
+            except Exception as e:
+                import traceback
+                traceback.print_exc()
+                yield f"data: {json.dumps({'event': 'error', 'data': {'message': str(e)}})}\n\n"
+
+        return Response(
+            stream_with_context(generate()),
+            mimetype='text/event-stream',
+            headers={
+                'Cache-Control': 'no-cache',
+                'X-Accel-Buffering': 'no'
+            }
+        )
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
 
 
 @app.route('/api/chat', methods=['POST'])
